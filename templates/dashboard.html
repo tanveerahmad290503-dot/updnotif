@@ -97,6 +97,27 @@
     </div>
 </div>
 
+<style>
+.unread-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #22c55e;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.unread-dot.is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.thread-row.activity-highlight {
+    background-color: rgba(34, 197, 94, 0.18);
+}
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function () {
@@ -159,8 +180,30 @@
     function updateThreads(html) {
         const container = document.getElementById('threads-container');
         if (container && typeof html === 'string') {
+            const currentScroll = window.scrollY;
             container.innerHTML = html;
+            window.scrollTo(0, currentScroll);
         }
+    }
+
+    function reorderThreadToTop(threadId, hasUnread) {
+        const list = document.getElementById('thread-list');
+        if (!list) return;
+
+        const row = list.querySelector(`[data-thread-id="${threadId}"]`);
+        if (!row) return;
+
+        const currentScroll = window.scrollY;
+        list.prepend(row);
+
+        const dot = row.querySelector('.unread-dot');
+        if (dot) {
+            dot.classList.toggle('is-visible', !!hasUnread);
+        }
+
+        row.classList.add('activity-highlight');
+        setTimeout(() => row.classList.remove('activity-highlight'), 900);
+        window.scrollTo(0, currentScroll);
     }
 
     function connectDashboardSocket() {
@@ -169,10 +212,23 @@
 
         socket.onmessage = function (event) {
             const payload = JSON.parse(event.data || '{}');
+
+            if (payload.type === 'thread_activity') {
+                reorderThreadToTop(payload.thread?.id, payload.thread?.has_unread_activity);
+                return;
+            }
+
             if (payload.type !== 'dashboard_update') return;
             updateMetrics(payload.metrics);
             updateChart(payload.chart);
             updateThreads(payload.threads_html);
+
+            if (payload.thread_activity?.type === 'thread_activity') {
+                reorderThreadToTop(
+                    payload.thread_activity.thread?.id,
+                    payload.thread_activity.thread?.has_unread_activity,
+                );
+            }
         };
 
         socket.onclose = function () {

@@ -51,7 +51,7 @@ def dashboard(request):
         .filter(user=request.user)
         .select_related("user")
         .prefetch_related("events")
-        .order_by("-last_activity_at")
+        .order_by("-last_activity_at", "-id")
 
     )
 
@@ -307,6 +307,9 @@ def thread_detail(request, thread_id):
         user=request.user
 
     )
+
+    thread.user_last_seen_at = timezone.now()
+    thread.save(update_fields=["user_last_seen_at"])
 
     context = {
 

@@ -1,10 +1,15 @@
-<div class="space-y-4">
+<div class="space-y-4" id="thread-list">
     {% for thread in threads %}
     <a href="{% url 'thread_detail' thread.id %}"
-       class="flex justify-between items-center bg-neutral-800 p-5 rounded-xl hover:bg-neutral-700 transition block">
+       data-thread-id="{{ thread.id }}"
+       class="thread-row flex justify-between items-center bg-neutral-800 p-5 rounded-xl hover:bg-neutral-700 transition block">
 
         <div>
-            <div class="text-lg font-semibold text-neutral-100">
+            <div class="flex items-center gap-2 text-lg font-semibold text-neutral-100">
+                <span
+                    class="unread-dot {% if thread.has_unread_activity %}is-visible{% endif %}"
+                    aria-hidden="true"
+                ></span>
                 {{ thread.company_name }}
             </div>
 

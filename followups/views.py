@@ -2,10 +2,12 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
+from dashboard.services.realtime_dashboard import push_dashboard_update
 from jobs.models import JobThread
 
 from .ai_service import improve_followup
@@ -17,6 +19,8 @@ from .generator import generate_followup
 def generate_followup_view(request, thread_id):
     thread = get_object_or_404(JobThread, id=thread_id, user=request.user)
     generated_text = generate_followup(thread, request.user)
+    thread.bump_last_activity(timezone.now())
+    push_dashboard_update(request.user, activity_thread=thread)
     return JsonResponse({"message": generated_text})
 
 

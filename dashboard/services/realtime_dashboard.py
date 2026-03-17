@@ -94,7 +94,7 @@ def _build_threads_html(user):
         JobThread.objects
         .filter(user=user)
         .prefetch_related("events")
-        .order_by("-last_activity_at")[:THREAD_LIMIT]
+        .order_by("-last_activity_at", "-id")[:THREAD_LIMIT]
     )
 
     for thread in threads:
@@ -106,11 +106,23 @@ def _build_threads_html(user):
     )
 
 
-def push_dashboard_update(user):
+def _build_thread_activity_payload(thread):
+    return {
+        "id": str(thread.id),
+        "last_activity_at": thread.last_activity_at.isoformat() if thread.last_activity_at else None,
+        "has_unread_activity": thread.has_unread_activity,
+    }
+
+
+def push_dashboard_update(user, activity_thread=None):
     cache_key = f"dashboard:last-push:{user.id}"
     now = time.monotonic()
     last_sent = cache.get(cache_key)
-    if last_sent and now - float(last_sent) < DASHBOARD_PUSH_DEBOUNCE_SECONDS:
+    if (
+        activity_thread is None
+        and last_sent
+        and now - float(last_sent) < DASHBOARD_PUSH_DEBOUNCE_SECONDS
+    ):
         return
 
     threads = JobThread.objects.filter(user=user)
@@ -121,6 +133,12 @@ def push_dashboard_update(user):
         "chart": _build_chart_data(threads),
         "threads_html": _build_threads_html(user),
     }
+
+    if activity_thread is not None:
+        payload["thread_activity"] = {
+            "type": "thread_activity",
+            "thread": _build_thread_activity_payload(activity_thread),
+        }
 
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -133,4 +151,16 @@ def push_dashboard_update(user):
             "payload": json.loads(json.dumps(payload)),
         },
     )
+
+    if activity_thread is not None:
+        async_to_sync(channel_layer.group_send)(
+            f"dashboard_{user.id}",
+            {
+                "type": "dashboard.message",
+                "payload": {
+                    "type": "thread_activity",
+                    "thread": _build_thread_activity_payload(activity_thread),
+                },
+            },
+        )
     cache.set(cache_key, now, timeout=60)
