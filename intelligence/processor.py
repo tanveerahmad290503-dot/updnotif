@@ -53,7 +53,7 @@ def process_unprocessed_emails(user):
         # --------------------------------------------------
         if not event_type:
             email.processed = True
-            email.save()
+            email.save(update_fields=["processed", "classification", "confidence_score", "classification_source"])
             continue
 
         # --------------------------------------------------
@@ -70,7 +70,7 @@ def process_unprocessed_emails(user):
             or email.subject
         )
 
-        event_time = email.received_at
+        event_time = email.received_at or timezone.now()
 
         # --------------------------------------------------
         # CREATE OR GET THREAD
@@ -90,6 +90,9 @@ def process_unprocessed_emails(user):
         # Update confidence if improved
         if confidence > thread.confidence_score:
             thread.confidence_score = confidence
+            thread.save(update_fields=["confidence_score"])
+
+        activity_updated = thread.bump_last_activity(event_time)
 
         # --------------------------------------------------
         # PREVENT DUPLICATE EVENT INSERT
@@ -125,13 +128,15 @@ def process_unprocessed_emails(user):
         email.classification = event_type
         email.confidence_score = confidence
         email.classification_source = classification_source
-        email.save()
+        email.save(update_fields=["processed", "classification", "confidence_score", "classification_source"])
 
-        if created or inserted_event or status_changed or event_type in [
+        if created or inserted_event or status_changed or activity_updated or event_type in [
             "RECRUITER_REPLY",
             "USER_REPLY",
+            "ASSESSMENT_REQUESTED",
+            "ACTION_REQUIRED",
         ]:
-            push_dashboard_update(user)
+            push_dashboard_update(user, activity_thread=thread)
 
 
 # ==========================================================
@@ -185,7 +190,15 @@ def update_thread_status(thread, event_type, event_time):
         changed = True
 
     if changed:
-        thread.save()
+        update_fields = []
+        if new_status and thread.status == new_status:
+            update_fields.append("status")
+        if event_type in ["RECRUITER_REPLY", "USER_REPLY"]:
+            update_fields.append("followup_dismissed")
+        if not thread.last_activity_at or event_time >= thread.last_activity_at:
+            update_fields.append("last_activity_at")
+
+        thread.save(update_fields=list(dict.fromkeys(update_fields)))
 
     return changed
 

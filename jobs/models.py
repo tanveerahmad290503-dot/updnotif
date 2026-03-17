@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 # ==========================================================
@@ -38,6 +39,7 @@ class JobThread(models.Model):
 
     first_detected_at = models.DateTimeField(null=True, blank=True)
     last_activity_at = models.DateTimeField(null=True, blank=True)
+    user_last_seen_at = models.DateTimeField(null=True, blank=True)
     followup_dismissed = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,10 +51,31 @@ class JobThread(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["gmail_thread_id"]),
             models.Index(fields=["last_activity_at"]),
+            models.Index(fields=["-last_activity_at"]),
         ]
 
     def __str__(self):
         return f"{self.company_name or 'Unknown Company'} - {self.job_title or 'Unknown Role'}"
+
+    @property
+    def has_unread_activity(self):
+        if not self.last_activity_at:
+            return False
+
+        if not self.user_last_seen_at:
+            return True
+
+        return self.last_activity_at > self.user_last_seen_at
+
+    def bump_last_activity(self, event_time=None):
+        timestamp = event_time or timezone.now()
+
+        if self.last_activity_at and timestamp <= self.last_activity_at:
+            return False
+
+        self.last_activity_at = timestamp
+        self.save(update_fields=["last_activity_at"])
+        return True
 
 
 # ==========================================================
