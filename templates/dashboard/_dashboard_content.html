@@ -1,0 +1,287 @@
+<!-- ========================= -->
+<!-- FOLLOW-UP ALERTS -->
+<!-- ========================= -->
+{% if not gmail_connected %}
+<div class="mb-10 bg-yellow-900/30 border border-yellow-700 p-6 rounded-2xl flex justify-between items-center">
+
+    <div>
+
+        <div class="text-yellow-400 font-semibold">
+            Gmail Disconnected — Sync Paused
+        </div>
+
+        <div class="text-yellow-300 text-sm mt-1">
+            Your Gmail token expired or access was revoked.
+            Reconnect Gmail to resume email tracking.
+        </div>
+
+    </div>
+
+    <a href="{% url 'gmail_connect' %}"
+       class="px-4 py-2 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-sm">
+
+        Reconnect Gmail
+
+    </a>
+
+</div>
+{% endif %}
+{% if followup_count > 0 %}
+<div class="mb-10 bg-red-900/30 border border-red-700 p-6 rounded-2xl">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-red-400">
+            Follow-ups Required ({{ followup_count }})
+        </h2>
+        <span class="text-sm text-red-300">
+            Action Needed
+        </span>
+    </div>
+
+    <div class="space-y-3">
+        {% for item in followups %}
+        <div class="flex justify-between items-center bg-neutral-900 p-4 rounded-xl">
+
+            <!-- LEFT SIDE (Thread Info Clickable) -->
+            <a href="{% url 'thread_detail' item.thread.id %}"
+               class="flex-1 hover:opacity-80 transition block">
+
+                <div class="font-medium text-neutral-100">
+                    {{ item.thread.company_name }}
+                </div>
+
+                <div class="text-sm text-neutral-400">
+                    {{ item.thread.job_title }}
+                </div>
+
+                <div class="text-xs text-neutral-500 mt-1">
+                    {{ item.reason }}
+                </div>
+            </a>
+
+            <!-- RIGHT SIDE (Buttons) -->
+            <div class="flex items-center gap-3 ml-6">
+
+                <a href="{% url 'thread_detail' item.thread.id %}"
+                   class="px-3 py-1 rounded-lg bg-red-800 text-red-300 text-xs hover:bg-red-700">
+                    View
+                </a>
+
+                <!-- DISMISS BUTTON -->
+                <form method="POST"
+                      action="{% url 'dismiss_followup' item.thread.id %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="px-3 py-1 rounded-lg bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600">
+                        Dismiss
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+
+<!-- ========================= -->
+<!-- ANALYTICS METRICS -->
+<!-- ========================= -->
+<div class="grid grid-cols-6 gap-6 mb-10">
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Applications</div>
+        <div class="text-3xl font-semibold mt-2">{{ total }}</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Pending</div>
+        <div class="text-3xl font-semibold mt-2">{{ pending }}</div>
+        <div class="text-xs text-neutral-500 mt-1">
+            Action / Assessment / Awaiting Reply
+        </div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Interview Conversion</div>
+        <div class="text-3xl font-semibold mt-2">
+            {{ interview_conversion }}%
+        </div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Offer Rate</div>
+        <div class="text-3xl font-semibold mt-2">
+            {{ offer_rate }}%
+        </div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Avg Time to Offer</div>
+        <div class="text-3xl font-semibold mt-2">
+            {{ avg_time_to_offer }} days
+        </div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">New Updates (7d)</div>
+        <div class="text-3xl font-semibold mt-2">
+            {{ recent_updates }}
+        </div>
+    </div>
+
+</div>
+
+
+
+<!-- ========================= -->
+<!-- FUNNEL VISUAL -->
+<!-- ========================= -->
+<div class="bg-neutral-900 p-6 rounded-2xl mb-10">
+    <h2 class="text-lg font-medium mb-6">Hiring Funnel</h2>
+
+    <div class="grid grid-cols-3 gap-6 text-center">
+
+        <div class="bg-neutral-800 p-6 rounded-xl">
+            <div class="text-neutral-400 text-sm">Applied</div>
+            <div class="text-2xl font-semibold mt-2">{{ total }}</div>
+        </div>
+
+        <div class="bg-neutral-800 p-6 rounded-xl">
+            <div class="text-neutral-400 text-sm">Interview</div>
+            <div class="text-2xl font-semibold mt-2">{{ interviews }}</div>
+        </div>
+
+        <div class="bg-neutral-800 p-6 rounded-xl">
+            <div class="text-neutral-400 text-sm">Offer</div>
+            <div class="text-2xl font-semibold mt-2">{{ offers }}</div>
+        </div>
+
+    </div>
+</div>
+
+
+
+<!-- ========================= -->
+<!-- WEEKLY TREND CHART -->
+<!-- ========================= -->
+<div class="bg-neutral-900 p-6 rounded-2xl mb-10">
+    <h2 class="text-lg font-medium mb-6">Applications Per Week</h2>
+
+    {% if weekly_data %}
+        <canvas id="weeklyChart"></canvas>
+    {% else %}
+        <div class="text-neutral-500">
+            Not enough data yet.
+        </div>
+    {% endif %}
+</div>
+
+
+
+<!-- ========================= -->
+<!-- THREAD LIST -->
+<!-- ========================= -->
+<div class="bg-neutral-900 rounded-2xl p-6">
+    <h2 class="text-lg font-medium mb-6">Recent Threads</h2>
+
+    <div class="space-y-4">
+        {% for thread in threads %}
+        <a href="{% url 'thread_detail' thread.id %}"
+           class="flex justify-between items-center bg-neutral-800 p-5 rounded-xl hover:bg-neutral-700 transition block">
+
+            <div>
+                <div class="text-lg font-semibold text-neutral-100">
+                    {{ thread.company_name }}
+                </div>
+
+                <div class="text-sm text-neutral-400">
+                    {{ thread.job_title }}
+                </div>
+
+                {% if thread.events.exists %}
+                <div class="text-xs text-neutral-500 mt-1">
+                    Latest: {{ thread.events.first.get_event_type_display }}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="flex items-center gap-6">
+
+                <span class="px-3 py-1 rounded-lg bg-neutral-700 text-sm">
+                    {{ thread.display_status }}
+                </span>
+
+                <span class="text-sm text-neutral-400">
+                    {{ thread.last_activity_at|timesince }} ago
+                </span>
+
+            </div>
+
+        </a>
+        {% empty %}
+        <div class="text-neutral-500">
+            No job threads yet.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+
+<!-- ========================= -->
+<!-- CHART SCRIPT -->
+<!-- ========================= -->
+{% if weekly_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const weeklyData = JSON.parse('{{ weekly_data|escapejs }}');
+
+    if (weeklyData && weeklyData.length > 0) {
+
+        const labels = weeklyData.map(item =>
+            new Date(item.week).toLocaleDateString()
+        );
+
+        const values = weeklyData.map(item => item.count);
+
+        const ctx = document.getElementById('weeklyChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Applications per Week',
+                    data: values,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,0.15)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: { color: '#e5e5e5' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#a3a3a3' },
+                        grid: { color: '#262626' }
+                    },
+                    y: {
+                        ticks: { color: '#a3a3a3' },
+                        grid: { color: '#262626' }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endif %}

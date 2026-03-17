@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not gmail_connected %}
+<div class="mb-10 bg-yellow-900/30 border border-yellow-700 p-6 rounded-2xl flex justify-between items-center">
+    <div>
+        <div class="text-yellow-400 font-semibold">Gmail Disconnected — Sync Paused</div>
+        <div class="text-yellow-300 text-sm mt-1">
+            Your Gmail token expired or access was revoked.
+            Reconnect Gmail to resume email tracking.
+        </div>
+    </div>
+
+    <a href="{% url 'gmail_connect' %}" class="px-4 py-2 rounded-lg bg-yellow-700 hover:bg-yellow-600 text-sm">
+        Reconnect Gmail
+    </a>
+</div>
+{% endif %}
+
+{% if followup_count > 0 %}
+<div class="mb-10 bg-red-900/30 border border-red-700 p-6 rounded-2xl">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-red-400">Follow-ups Required ({{ followup_count }})</h2>
+        <span class="text-sm text-red-300">Action Needed</span>
+    </div>
+
+    <div class="space-y-3">
+        {% for item in followups %}
+        <div class="flex justify-between items-center bg-neutral-900 p-4 rounded-xl">
+            <a href="{% url 'thread_detail' item.thread.id %}" class="flex-1 hover:opacity-80 transition block">
+                <div class="font-medium text-neutral-100">{{ item.thread.company_name }}</div>
+                <div class="text-sm text-neutral-400">{{ item.thread.job_title }}</div>
+                <div class="text-xs text-neutral-500 mt-1">{{ item.reason }}</div>
+            </a>
+
+            <div class="flex items-center gap-3 ml-6">
+                <a href="{% url 'thread_detail' item.thread.id %}" class="px-3 py-1 rounded-lg bg-red-800 text-red-300 text-xs hover:bg-red-700">View</a>
+                <form method="POST" action="{% url 'dismiss_followup' item.thread.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1 rounded-lg bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600">
+                        Dismiss
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-6 gap-6 mb-10">
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Applications</div>
+        <div class="text-3xl font-semibold mt-2" id="metric-total">{{ total }}</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Pending</div>
+        <div class="text-3xl font-semibold mt-2" id="metric-pending">{{ pending }}</div>
+        <div class="text-xs text-neutral-500 mt-1">Action / Assessment / Awaiting Reply</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Interviews</div>
+        <div class="text-3xl font-semibold mt-2" id="metric-interview">{{ interviews }}</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Rejected</div>
+        <div class="text-3xl font-semibold mt-2" id="metric-rejected">{{ threads_rejected }}</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">Avg Time to Offer</div>
+        <div class="text-3xl font-semibold mt-2">{{ avg_time_to_offer }} days</div>
+    </div>
+
+    <div class="bg-neutral-900 p-6 rounded-2xl">
+        <div class="text-neutral-400 text-sm">New Updates (7d)</div>
+        <div class="text-3xl font-semibold mt-2">{{ recent_updates }}</div>
+    </div>
+</div>
+
+<div class="bg-neutral-900 p-6 rounded-2xl mb-10">
+    <h2 class="text-lg font-medium mb-6">Applications Per Week</h2>
+    {% if weekly_data %}
+        <canvas id="weeklyChart"></canvas>
+    {% else %}
+        <div class="text-neutral-500">Not enough data yet.</div>
+    {% endif %}
+</div>
+
+<div class="bg-neutral-900 rounded-2xl p-6">
+    <h2 class="text-lg font-medium mb-6">Recent Threads</h2>
+    <div id="threads-container">
+        {% include "dashboard/_threads.html" %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const weeklyData = JSON.parse('{{ weekly_data|escapejs }}');
+    const chartCanvas = document.getElementById('weeklyChart');
+
+    const labels = (weeklyData || []).map(item => new Date(item.week).toLocaleDateString());
+    const values = (weeklyData || []).map(item => item.count);
+
+    if (chartCanvas) {
+        const ctx = chartCanvas.getContext('2d');
+        window.dashboardChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Applications per Week',
+                    data: values,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99,102,241,0.15)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#e5e5e5' } } },
+                scales: {
+                    x: { ticks: { color: '#a3a3a3' }, grid: { color: '#262626' } },
+                    y: { ticks: { color: '#a3a3a3' }, grid: { color: '#262626' } }
+                }
+            }
+        });
+    }
+
+    function updateMetrics(data) {
+        if (!data) return;
+        const metricTotal = document.getElementById('metric-total');
+        const metricPending = document.getElementById('metric-pending');
+        const metricInterview = document.getElementById('metric-interview');
+        const metricRejected = document.getElementById('metric-rejected');
+
+        if (metricTotal && data.total !== undefined) metricTotal.innerText = data.total;
+        if (metricPending && data.pending !== undefined) metricPending.innerText = data.pending;
+        if (metricInterview && data.interview !== undefined) metricInterview.innerText = data.interview;
+        if (metricRejected && data.rejected !== undefined) metricRejected.innerText = data.rejected;
+    }
+
+    let chartDebounceTimer = null;
+    function updateChart(data) {
+        if (!data || !window.dashboardChart) return;
+        clearTimeout(chartDebounceTimer);
+        chartDebounceTimer = setTimeout(() => {
+            window.dashboardChart.data.labels = data.labels || [];
+            window.dashboardChart.data.datasets[0].data = data.values || [];
+            window.dashboardChart.update();
+        }, 120);
+    }
+
+    function updateThreads(html) {
+        const container = document.getElementById('threads-container');
+        if (container && typeof html === 'string') {
+            container.innerHTML = html;
+        }
+    }
+
+    function connectDashboardSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/dashboard/`);
+
+        socket.onmessage = function (event) {
+            const payload = JSON.parse(event.data || '{}');
+            if (payload.type !== 'dashboard_update') return;
+            updateMetrics(payload.metrics);
+            updateChart(payload.chart);
+            updateThreads(payload.threads_html);
+        };
+
+        socket.onclose = function () {
+            setTimeout(connectDashboardSocket, 1000);
+        };
+    }
+
+    connectDashboardSocket();
+})();
+</script>
+
+{% endblock %}

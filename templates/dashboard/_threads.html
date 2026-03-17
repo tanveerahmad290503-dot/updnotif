@@ -1,0 +1,37 @@
+<div class="space-y-4">
+    {% for thread in threads %}
+    <a href="{% url 'thread_detail' thread.id %}"
+       class="flex justify-between items-center bg-neutral-800 p-5 rounded-xl hover:bg-neutral-700 transition block">
+
+        <div>
+            <div class="text-lg font-semibold text-neutral-100">
+                {{ thread.company_name }}
+            </div>
+
+            <div class="text-sm text-neutral-400">
+                {{ thread.job_title }}
+            </div>
+
+            {% if thread.events.exists %}
+            <div class="text-xs text-neutral-500 mt-1">
+                Latest: {{ thread.events.first.get_event_type_display }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-6">
+            <span class="px-3 py-1 rounded-lg bg-neutral-700 text-sm">
+                {{ thread.display_status }}
+            </span>
+
+            <span class="text-sm text-neutral-400">
+                {{ thread.last_activity_at|timesince }} ago
+            </span>
+        </div>
+    </a>
+    {% empty %}
+    <div class="text-neutral-500">
+        No job threads yet.
+    </div>
+    {% endfor %}
+</div>
