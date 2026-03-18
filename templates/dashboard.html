@@ -121,6 +121,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("refresh") === "1") {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        window.location.reload();
+        return;
+    }
+
     const weeklyData = JSON.parse('{{ weekly_data|escapejs }}');
     const chartCanvas = document.getElementById('weeklyChart');
 

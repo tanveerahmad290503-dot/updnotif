@@ -69,12 +69,20 @@ class JobThread(models.Model):
 
     def bump_last_activity(self, event_time=None):
         timestamp = event_time or timezone.now()
+        updated = (
+            JobThread.objects
+            .filter(pk=self.pk)
+            .filter(
+                models.Q(last_activity_at__isnull=True) |
+                models.Q(last_activity_at__lt=timestamp)
+            )
+            .update(last_activity_at=timestamp)
+        )
 
-        if self.last_activity_at and timestamp <= self.last_activity_at:
+        if not updated:
             return False
 
         self.last_activity_at = timestamp
-        self.save(update_fields=["last_activity_at"])
         return True
 
 

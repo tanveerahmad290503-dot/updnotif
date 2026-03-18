@@ -38,6 +38,24 @@ def resolve_thread_display_status(thread):
     return thread.status
 
 
+def mark_thread_seen(thread, user):
+    if thread.user_id != user.id:
+        return False
+
+    if (
+        thread.user_last_seen_at is None or
+        (
+            thread.last_activity_at and
+            thread.user_last_seen_at < thread.last_activity_at
+        )
+    ):
+        thread.user_last_seen_at = timezone.now()
+        thread.save(update_fields=["user_last_seen_at"])
+        return True
+
+    return False
+
+
 # =====================================================
 # DASHBOARD
 # =====================================================
@@ -308,8 +326,8 @@ def thread_detail(request, thread_id):
 
     )
 
-    thread.user_last_seen_at = timezone.now()
-    thread.save(update_fields=["user_last_seen_at"])
+    if mark_thread_seen(thread, request.user):
+        push_dashboard_update(request.user, activity_thread=thread)
 
     context = {
 
