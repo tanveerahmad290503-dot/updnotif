@@ -3,6 +3,13 @@
 {% block content %}
 
 <div class="mb-8">
+    <a
+        href="{% url 'dashboard' %}?refresh=1"
+        class="inline-flex items-center text-sm text-neutral-400 hover:text-neutral-200 transition mb-4"
+    >
+        ← Back to dashboard
+    </a>
+
     <h1 class="text-2xl font-semibold">
         {{ thread.company_name }}
     </h1>
