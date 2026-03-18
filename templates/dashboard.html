@@ -206,11 +206,18 @@
         window.scrollTo(0, currentScroll);
     }
 
-    function connectDashboardSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/dashboard/`);
+    let dashboardSocket = null;
+    let reconnectTimer = null;
 
-        socket.onmessage = function (event) {
+    function connectDashboardSocket() {
+        if (dashboardSocket && dashboardSocket.readyState <= WebSocket.OPEN) {
+            return;
+        }
+
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        dashboardSocket = new WebSocket(`${protocol}://${window.location.host}/ws/dashboard/`);
+
+        dashboardSocket.onmessage = function (event) {
             const payload = JSON.parse(event.data || '{}');
 
             if (payload.type === 'thread_activity') {
@@ -231,10 +238,25 @@
             }
         };
 
-        socket.onclose = function () {
-            setTimeout(connectDashboardSocket, 1000);
+        dashboardSocket.onclose = function () {
+            dashboardSocket = null;
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(connectDashboardSocket, 1000);
         };
     }
+
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            window.location.reload();
+            return;
+        }
+
+        connectDashboardSocket();
+    });
+
+    window.addEventListener('pagehide', function () {
+        clearTimeout(reconnectTimer);
+    });
 
     connectDashboardSocket();
 })();
