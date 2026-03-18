@@ -206,18 +206,11 @@
         window.scrollTo(0, currentScroll);
     }
 
-    let dashboardSocket = null;
-    let reconnectTimer = null;
-
     function connectDashboardSocket() {
-        if (dashboardSocket && dashboardSocket.readyState <= WebSocket.OPEN) {
-            return;
-        }
-
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        dashboardSocket = new WebSocket(`${protocol}://${window.location.host}/ws/dashboard/`);
+        const socket = new WebSocket(`${protocol}://${window.location.host}/ws/dashboard/`);
 
-        dashboardSocket.onmessage = function (event) {
+        socket.onmessage = function (event) {
             const payload = JSON.parse(event.data || '{}');
 
             if (payload.type === 'thread_activity') {
@@ -238,25 +231,10 @@
             }
         };
 
-        dashboardSocket.onclose = function () {
-            dashboardSocket = null;
-            clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(connectDashboardSocket, 1000);
+        socket.onclose = function () {
+            setTimeout(connectDashboardSocket, 1000);
         };
     }
-
-    window.addEventListener('pageshow', function (event) {
-        if (event.persisted) {
-            window.location.reload();
-            return;
-        }
-
-        connectDashboardSocket();
-    });
-
-    window.addEventListener('pagehide', function () {
-        clearTimeout(reconnectTimer);
-    });
 
     connectDashboardSocket();
 })();
